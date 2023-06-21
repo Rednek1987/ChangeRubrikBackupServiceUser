@@ -71,7 +71,8 @@ $Exitcode = 0
             Out-Log "Failed to update service account in Rubrik Backup Service. Error code: $($ChangeStatus.ReturnValue)" -Severity Error
             Exit-Program -Exitcode $ChangeStatus.ReturnValue
         }
-
+        
+        #Start-Sleep -Seconds 3
         $StartStatus = $svc_Obj.StartService()
         if ($StartStatus.ReturnValue -eq "0")  {
             Out-Log "Rubrik Backup Service Started successfully" -Severity Host

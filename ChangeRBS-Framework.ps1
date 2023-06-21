@@ -52,7 +52,8 @@ Set-Variable -Name ErrorActionPreference -Value "Continue" -Scope Global -Force
     $HostList | ForEach-Object {
         $currentHost = $_
         Out-Log "Deploying the core script on $currentHost"
-        $session = New-PSSession -ComputerName $currentHost -Credential $(Get-Credential -Message "Please give me the admin credential to deploy the core script!")
+        $AdminCredential = $(Get-Credential -Message "Please give me the admin credential to deploy the core script!")
+        $session = New-PSSession -ComputerName $currentHost -Credential $AdminCredential
         $CreateScriptDirectoryResult = Invoke-Command -Session $session -ScriptBlock {
             Param ($ClientDeployPath)
             if (!(Test-Path -Path $ClientDeployPath)) {
@@ -97,7 +98,7 @@ Read-Host -Prompt "Press Enter to continue"
     $HostList | ForEach-Object {
         $currentHost = $_
         Out-Log "$currentHost : Starting the script" -Severity Host
-        $session = New-PSSession -ComputerName $currentHost -Credential $(Get-Credential -Message "Please give me the admin credential to deploy the core script!")
+        $session = New-PSSession -ComputerName $currentHost -Credential $AdminCredential
         $ScriptStartResult = Invoke-Command -Session $session -ScriptBlock {
             Param ($ClientDeployPath, $CoreScript, $KeyFile, $SecuredCredentialFile, $ScriptFolder)
             Try {
