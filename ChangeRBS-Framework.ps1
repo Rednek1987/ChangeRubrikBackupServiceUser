@@ -1,8 +1,8 @@
 [CmdletBinding()]
 Param(
-    [Parameter(Mandatory=$false,ValueFromPipeline,  #CHANGE
+    [Parameter(Mandatory=$false,ValueFromPipeline,
     HelpMessage="This is a comma separated list. You have to define the hostname/FQDN of computers.")]
-    [string[]]$HostList = @('gabo-horv-w1'), #CHANGE
+    [string[]]$HostList = @(),
 
     [Parameter(Mandatory=$false)]
     [string]$ConfigFile = 'config.xml'
@@ -17,7 +17,7 @@ $global:originalVariablePreferences = @{"DebugPreference" = $DebugPreference;
                                         "ErrorActionPreference" = $ErrorActionPreference
                                        }
 
-Set-Variable -Name DebugPreference -Value "Continue" -Scope Global -Force   #CHANGE
+Set-Variable -Name DebugPreference -Value "SilentlyContinue" -Scope Global -Force
 Set-Variable -Name InformationPreference -Value "Continue" -Scope Global -Force
 Set-Variable -Name WarningPreference -Value "Continue" -Scope Global -Force
 Set-Variable -Name ErrorActionPreference -Value "Continue" -Scope Global -Force
@@ -52,7 +52,7 @@ Set-Variable -Name ErrorActionPreference -Value "Continue" -Scope Global -Force
     $HostList | ForEach-Object {
         $currentHost = $_
         Out-Log "Deploying the core script on $currentHost"
-        $session = New-PSSession -ComputerName $currentHost -Credential $(New-Object System.Management.Automation.PSCredential ('pso\gabor.horvath', $(ConvertTo-SecureString 'M1at3tv3sg3c1!' -AsPlainText -Force))) #$(Get-Credential -Message "Please give me the admin credential to deploy the core script!") #CHANGE
+        $session = New-PSSession -ComputerName $currentHost -Credential $(Get-Credential -Message "Please give me the admin credential to deploy the core script!")
         $CreateScriptDirectoryResult = Invoke-Command -Session $session -ScriptBlock {
             Param ($ClientDeployPath)
             if (!(Test-Path -Path $ClientDeployPath)) {
@@ -92,12 +92,12 @@ Out-Log "Please check the log file $($global:LogFile) to be sure all Windows ser
 Read-Host -Prompt "Press Enter to continue"
 
 #region Run service user change
-    Out-Log "REGION Run service user change"  #TO DO Tesztelni, ha nem sikerült a file-t deploy-olni....
+    Out-Log "REGION Run service user change"
     Out-Log "Starting the core script ---->" -Severity Host
     $HostList | ForEach-Object {
         $currentHost = $_
         Out-Log "$currentHost : Starting the script" -Severity Host
-        $session = New-PSSession -ComputerName $currentHost -Credential $(New-Object System.Management.Automation.PSCredential ('pso\gabor.horvath', $(ConvertTo-SecureString 'M1at3tv3sg3c1!' -AsPlainText -Force))) #$(Get-Credential -Message "Please give me the admin credential to deploy the core script!") #CHANGE
+        $session = New-PSSession -ComputerName $currentHost -Credential $(Get-Credential -Message "Please give me the admin credential to deploy the core script!")
         $ScriptStartResult = Invoke-Command -Session $session -ScriptBlock {
             Param ($ClientDeployPath, $CoreScript, $KeyFile, $SecuredCredentialFile, $ScriptFolder)
             Try {
@@ -116,6 +116,7 @@ Read-Host -Prompt "Press Enter to continue"
         }
         
         Remove-PSSession -Session $session
+        Start-Sleep -Seconds 10
     }
 #endregion
 
@@ -134,7 +135,7 @@ Read-Host -Prompt "Press Enter to continue"
     Out-Log "Number of hosts: $($HostList.Count)" -Severity Host
     Out-Log "Number of collected logs: $((Get-ChildItem -Path LOGS).Count)" -Severity Host
     Out-Log "`nError exit statuses:" -Severity Host
-    Out-Log "`n$((Get-ChildItem -Path LOGS | Get-Content -Last 1) -notlike "Exit code: 0")" -Severity Host
+    Out-Log "`n$(Get-ChildItem -Path LOGS | Get-Content -Last 1 | Select-String -Pattern "Exit code: 0" -NotMatch)" -Severity Host
 #endregion
 
 Exit-Program
