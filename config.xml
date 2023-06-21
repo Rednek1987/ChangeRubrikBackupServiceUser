@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<main>
+    <Windows>
+        <KeyFile>AES.key</KeyFile>
+        <SecuredCredentialFile>SecCred.txt</SecuredCredentialFile>
+        <ClientDeployPath>C:\Script\RBSServiceUserChange</ClientDeployPath>
+        <CoreScript>ChangeRBSServiceUser.ps1</CoreScript>
+    </Windows>
+</main>
