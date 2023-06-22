@@ -18,12 +18,51 @@ $global:originalVariablePreferences = @{"DebugPreference" = $DebugPreference;
                                         "ErrorActionPreference" = $ErrorActionPreference
                                        }
 
-Set-Variable -Name DebugPreference -Value "Continue" -Scope Global -Force   #CHANGE
+Set-Variable -Name DebugPreference -Value "SilentlyContinue" -Scope Global -Force
 Set-Variable -Name InformationPreference -Value "Continue" -Scope Global -Force
 Set-Variable -Name WarningPreference -Value "Continue" -Scope Global -Force
 Set-Variable -Name ErrorActionPreference -Value "Stop" -Scope Global -Force
 
 $Exitcode = 0
+
+
+#Function definition
+function Grant-LogonasaService {
+    param (
+        $username,
+        $computerName
+    )
+
+    $tempPath = [System.IO.Path]::GetTempPath()
+    $import = Join-Path -Path $tempPath -ChildPath "import.inf"
+    if(Test-Path $import) { Remove-Item -Path $import -Force }
+    $export = Join-Path -Path $tempPath -ChildPath "export.inf"
+    if(Test-Path $export) { Remove-Item -Path $export -Force }
+    $secedt = Join-Path -Path $tempPath -ChildPath "secedt.sdb"
+    if(Test-Path $secedt) { Remove-Item -Path $secedt -Force }
+    try {
+        Out-Log ("Granting SeServiceLogonRight to user account: {0} on host: {1}." -f $username, $computerName)
+        $sid = ((New-Object System.Security.Principal.NTAccount($username)).Translate([System.Security.Principal.SecurityIdentifier])).Value
+        secedit /export /cfg $export
+        $sids = (Select-String $export -Pattern "SeServiceLogonRight").Line
+        foreach ($line in @("[Unicode]", "Unicode=yes", "[System Access]", "[Event Audit]", "[Registry Values]", "[Version]", "signature=`"`$CHICAGO$`"", "Revision=1", "[Profile Description]", "Description=GrantLogOnAsAService security template", "[Privilege Rights]", "SeServiceLogonRight = *$sids,*$sid")) {
+            Add-Content $import $line
+        }
+        secedit /import /db $secedt /cfg $import
+        Out-Log "Running secedit:"
+        Out-Log (secedit /configure /db $secedt | Out-String)
+        Out-Log "Group policy update:"
+        Out-Log (gpupdate /force | Out-String) 
+        Remove-Item -Path $import -Force
+        Remove-Item -Path $export -Force
+        Remove-Item -Path $secedt -Force
+    }
+    catch {
+        Out-Log ("Failed to grant SeServiceLogonRight to user account: {0} on host: {1}." -f $username, $computerName) -Severity Error
+        Out-Log $error[0] -Severity Error
+    }
+}
+
 
 #region Importing module
     Write-Debug "REGION Importing module"
@@ -63,7 +102,8 @@ $Exitcode = 0
         $Password = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
         [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
         Out-Log "Changing service user..." -Severity Host
-        $ChangeStatus = $svc_Obj.change($null,$null,$null,$null,$null,$null, $ServiceCredential.UserName,$Password,$null,$null,$null)
+        Grant-LogonasaService -username $ServiceCredential.UserName -computerName $env:computername
+        $ChangeStatus = $svc_Obj.change($null,$null,$null,$null,$null,$null,$ServiceCredential.UserName,$Password,$null,$null,$null)
         
         if ($ChangeStatus.ReturnValue -eq "0")  {
             Out-Log "Log on account updated sucessfully for Rubrik Backup Service" -Severity Host
@@ -71,8 +111,9 @@ $Exitcode = 0
             Out-Log "Failed to update service account in Rubrik Backup Service. Error code: $($ChangeStatus.ReturnValue)" -Severity Error
             Exit-Program -Exitcode $ChangeStatus.ReturnValue
         }
-        
-        #Start-Sleep -Seconds 3
+
+        Start-Sleep -Seconds 1
+
         $StartStatus = $svc_Obj.StartService()
         if ($StartStatus.ReturnValue -eq "0")  {
             Out-Log "Rubrik Backup Service Started successfully" -Severity Host
