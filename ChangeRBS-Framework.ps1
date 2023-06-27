@@ -49,10 +49,10 @@ Set-Variable -Name ErrorActionPreference -Value "Continue" -Scope Global -Force
 #region Preparation and deploy
     Out-Log "REGION Preparation and deploy"
     Out-Log "Deploying the core script ---->" -Severity Host
+    $AdminCredential = $(Get-Credential -Message "Please give me the admin credential to deploy the core script!")
     $HostList | ForEach-Object {
         $currentHost = $_
         Out-Log "Deploying the core script on $currentHost"
-        $AdminCredential = $(Get-Credential -Message "Please give me the admin credential to deploy the core script!")
         $session = New-PSSession -ComputerName $currentHost -Credential $AdminCredential
         $CreateScriptDirectoryResult = Invoke-Command -Session $session -ScriptBlock {
             Param ($ClientDeployPath)
